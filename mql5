@@ -1,0 +1,90 @@
+mql5
+#property copyright 'Forex Robot Easy Team'
+#property link 'forexroboteasy.com'
+
+// Input parameters
+input double EntryAmount = 0.01; // Entry amount for each trade
+input double StopLoss = 50.0; // Stop loss in pips
+input double ProfitGoal = 100.0; // Profit goal in pips
+
+// Moving Average settings
+input int MA_Period = 20; // Period for Moving Average calculation
+input ENUM_APPLIED_PRICE MA_Price = PRICE_CLOSE; // Applied price for Moving Average
+
+// Long/Short indicator settings
+input int LS_Period = 14; // Period for Long/Short indicator calculation
+input double LS_Level = 0.5; // Level for Long/Short indicator
+
+// Global variables
+double maBuffer[]; // Buffer for Moving Average values
+double lsBuffer[]; // Buffer for Long/Short indicator values
+
+// Initialization function
+int OnInit()
+{
+   // Initialize buffers
+   ArrayResize(maBuffer, Bars);
+   ArrayResize(lsBuffer, Bars);
+
+   // Set indicator buffers
+   SetIndexBuffer(0, maBuffer);
+   SetIndexBuffer(1, lsBuffer);
+
+   // Set indicator labels
+   SetIndexLabel(0, 'Moving Average');
+   SetIndexLabel(1, 'Long/Short');
+
+   // Set indicator style
+   SetIndexStyle(0, DRAW_LINE);
+   SetIndexStyle(1, DRAW_LINE);
+
+   return INIT_SUCCEEDED;
+}
+
+// Deinitialization function
+void OnDeinit(const int reason)
+{
+   // Cleanup buffers
+   ArrayFree(maBuffer);
+   ArrayFree(lsBuffer);
+}
+
+// Trading function
+void OnTick()
+{
+   // Calculate Moving Average
+   for (int i = 0; i < Bars; i++)
+   {
+      maBuffer[i] = iMA(NULL, 0, MA_Period, 0, MA_Mode, MA_Price, i);
+   }
+
+   // Calculate Long/Short indicator
+   for (int i = 0; i < Bars; i++)
+   {
+      double high = High[i];
+      double low = Low[i];
+      double close = Close[i];
+
+      lsBuffer[i] = iCustom(NULL, 0, 'Long/Short', LS_Period, LS_Level, high, low, close);
+   }
+
+   // Check trading conditions
+   bool isBuySignal = maBuffer[0] > maBuffer[1] && lsBuffer[0] > LS_Level;
+   bool isSellSignal = maBuffer[0] < maBuffer[1] && lsBuffer[0] < LS_Level;
+
+   // Execute trades
+   if (isBuySignal)
+   {
+      double entryPrice = Ask;
+      double stopLossPrice = entryPrice - StopLoss * Point;
+      double takeProfitPrice = entryPrice + ProfitGoal * Point;
+      OrderSend(Symbol(), OP_BUY, EntryAmount, entryPrice, 0, stopLossPrice, takeProfitPrice);
+   }
+   else if (isSellSignal)
+   {
+      double entryPrice = Bid;
+      double stopLossPrice = entryPrice + StopLoss * Point;
+      double takeProfitPrice = entryPrice - ProfitGoal * Point;
+      OrderSend(Symbol(), OP_SELL, EntryAmount, entryPrice, 0, stopLossPrice, takeProfitPrice);
+   }
+}
